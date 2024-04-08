@@ -1,0 +1,61 @@
+# Usar Ubuntu 22.04 como imagen base  (esta huea no esta depurada depurada)
+FROM ubuntu:22.04
+ARG GOVERSION=1.22.2
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y \
+    build-essential \
+    curl \
+    gcc \
+    libc6-dev \
+    git \
+    jq \
+    libatomic1 \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    nano \
+    net-tools \
+    netcat \
+    wget \
+    sudo \
+    locales \
+    && locale-gen es_CL.UTF-8 \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+
+# ==========================GOLANG
+RUN wget https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz -O go.tar.gz \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
+ENV GOPATH=/go
+ENV PATH=$PATH:$GOPATH/bin
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+
+# ==========================DOCKER
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+RUN apt update && apt install -y docker-ce docker-ce-cli containerd.io
+# ==========================VSCODESERVER
+RUN curl -fsSL https://code-server.dev/install.sh | sh
+# ==========================RESTO
+
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["--disable-telemetry"]
+
+WORKDIR /home/pknelo
+RUN adduser --disabled-password --gecos '' pknelo && \
+    echo "pknelo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && usermod -aG docker pknelo
+USER pknelo
+EXPOSE 3080
+ENV PASSWORD=Qu3shush4p4s4
+# la linea anterior es para informacion se debe cambiar ojo los hu...nes que critican
+# la siguiente es pa crear la imagen 
+# docker build --no-cache -f Dockerfile-go-docker -t vscodesrv-gd:1.0 .
